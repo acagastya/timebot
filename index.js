@@ -1,0 +1,140 @@
+const fs = require("fs");
+const moment = require("moment-timezone");
+const irc = require("irc");
+
+const { server, nick, maintainers } = require("./config");
+const FILE = "./config.json";
+let { alias, channels } = JSON.parse(fs.readFileSync(FILE));
+
+const ircClient = new irc.Client(server, nick, { channels });
+
+ircClient.addListener("error", errorHandler);
+
+ircClient.addListener("message", normalMsg);
+
+ircClient.addListener("pm", inviteHandler);
+
+function inviteHandler(sender, msg) {
+  if (!msg.startsWith("#")) return;
+  channels.push(msg);
+  fs.writeFileSync(
+    FILE,
+    JSON.stringify({ channels, alias }, null, 2) + "\n",
+    err => {
+      if (err) {
+        ircClient.say(sender, `Error occurred: ${err}.`);
+        return;
+      }
+    }
+  );
+  ircClient.join(msg);
+  ircClient.say(sender, "Attempted to join.");
+  channels = JSON.parse(fs.readFileSync(FILE));
+}
+
+function normalMsg(sender, channel, msg) {
+  if (msg.includes(`${nick} help`)) showHelp(channel, msg);
+  else if (msg.includes(`${nick} ls `)) showList(channel, msg);
+  else if (msg.includes(`${nick} add `)) addAlias(sender, channel, msg);
+  else if (msg.includes(`${nick} rm `)) deleteAlias(sender, channel, msg);
+  else if (msg.includes(`${nick} `)) sayTime(channel, msg);
+  else if (msg.includes(nick)) showHelp(channel, msg);
+}
+
+function errorHandler(msg) {
+  for (const maintainer of maintainers)
+    ircClient.say(maintainer, `${nick} error: ${msg}`);
+}
+
+function showHelp(channel, msg) {
+  ircClient.say(channel, `Use "${nick} help" to show help.`);
+  ircClient.say(
+    channel,
+    `Use "${nick} ls <timezone>" to show a list of valid timezones.`
+  );
+  ircClient.say(
+    channel,
+    `Use "${nick} <timezone>" to display current time of <timezone>.`
+  );
+  ircClient.say(
+    channel,
+    `Use "${nick} add <alias>:<timezone>" for adding an alias for a timezone.`
+  );
+  ircClient.say(
+    channel,
+    `Use "${nick} rm <alias>" from removing an alias for a timezone.`
+  );
+}
+
+function showList(channel, msg) {
+  const reg = new RegExp(`${nick}:? ls (.*)`);
+  const zone = msg.match(reg)[1];
+  const allZones = moment.tz.names().map(el => el.replace(/_/g, " "));
+  const res = allZones
+    .filter(el => el.toLowerCase().includes(zone.toLowerCase()))
+    .join(", ");
+  ircClient.say(channel, res);
+}
+
+function sayTime(channel, msg) {
+  const reg = new RegExp(`${nick}:? (.*)`);
+  const zone = msg.match(reg)[1].replace(/ /g, "_");
+  const machineReadableZone = alias[zone] || zone;
+  const TZ = moment.tz.names().includes(machineReadableZone)
+    ? machineReadableZone
+    : "UTC";
+  let time = moment.tz(TZ).format("HH:mm MMM DD z");
+  ircClient.say(channel, time);
+}
+
+function addAlias(sender, channel, msg) {
+  if (!maintainers.includes(sender)) {
+    ircClient.say(channel, "Only maintainers allowed to add aliases.");
+    return;
+  }
+  if (!msg.includes(":")) {
+    ircClient.say(channel, "Wrong syntax.");
+    showHelp(channel);
+    return;
+  }
+  const reg = new RegExp(`${nick}:? add (.*)`);
+  const [key, value] = msg.match(reg)[1].split(":");
+  const machineReadableValue = value.replace(/ /g, "_");
+  if (moment.tz.names().includes(machineReadableValue)) {
+    alias[key] = machineReadableValue;
+    fs.writeFileSync(
+      FILE,
+      JSON.stringify({ channels, alias }, null, 2) + "\n",
+      err => {
+        if (err) {
+          ircClient.say(channel, `Error occurred: ${err}`);
+          return;
+        }
+        alias = JSON.parse(fs.readFileSync(FILE)).alias;
+        ircClient.say(channel, `Alias for ${key} has been added.`);
+      }
+    );
+  }
+}
+
+function deleteAlias(sender, channel, msg) {
+  if (!maintainers.includes(sender)) {
+    ircClient.say(channel, "Only maintainers allowed to delete aliases.");
+    return;
+  }
+  const reg = new RegExp(`${nick}:? rm (.*)`);
+  const key = msg.match(reg)[1];
+  delete alias[key];
+  fs.writeFileSync(
+    FILE,
+    JSON.stringify({ channels, alias }, null, 2) + "\n",
+    err => {
+      if (err) {
+        ircClient.say(channel, `Error occurred: ${err}`);
+        return;
+      }
+      alias = JSON.parse(fs.readFileSync(FILE)).alias;
+      ircClient.say(channel, `Alias for ${key} now does not exist.`);
+    }
+  );
+}

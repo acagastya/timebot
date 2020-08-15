@@ -1,0 +1,10 @@
+{
+  "channels": [
+    "#foo",
+    "##bar"
+  ],
+  "alias": {
+    "john": "America/New_York",
+    "doe": "Australia/Sydney",
+  }
+}
