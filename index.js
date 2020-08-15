@@ -12,9 +12,16 @@ ircClient.addListener("error", errorHandler);
 
 ircClient.addListener("message", normalMsg);
 
-ircClient.addListener("pm", inviteHandler);
+ircClient.addListener("pm", pmHandler);
 
-function inviteHandler(sender, msg) {
+function handleKill(sender, msg) {
+  if(msg != "KILL")  return;
+  if(!maintainer.includes(sender))  return;
+  process.abort();
+}
+
+function pmHandler(sender, msg) {
+  handleKill(sender, msg);
   if (!msg.startsWith("#")) return;
   channels.push(msg);
   fs.writeFileSync(
