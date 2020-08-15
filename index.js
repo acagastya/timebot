@@ -15,8 +15,8 @@ ircClient.addListener("message", normalMsg);
 ircClient.addListener("pm", pmHandler);
 
 function handleKill(sender, msg) {
-  if(msg != "KILL")  return;
-  if(!maintainer.includes(sender))  return;
+  if (msg != "KILL") return;
+  if (!maintainer.includes(sender)) return;
   process.abort();
 }
 
@@ -65,11 +65,11 @@ function showHelp(channel, msg) {
   );
   ircClient.say(
     channel,
-    `Use "${nick} add <alias>:<timezone>" for adding an alias for a timezone.`
+    `Use "${nick} add <alias>:<timezone>" for adding an <alias> for a <timezone>.`
   );
   ircClient.say(
     channel,
-    `Use "${nick} rm <alias>" from removing an alias for a timezone.`
+    `Use "${nick} rm <alias>" from removing an <alias> for a <timezone>.`
   );
 }
 
@@ -117,10 +117,10 @@ function addAlias(sender, channel, msg) {
           ircClient.say(channel, `Error occurred: ${err}`);
           return;
         }
-        alias = JSON.parse(fs.readFileSync(FILE)).alias;
-        ircClient.say(channel, `Alias for ${key} has been added.`);
       }
     );
+    alias = JSON.parse(fs.readFileSync(FILE)).alias;
+    ircClient.say(channel, `Alias for ${key} has been added.`);
   }
 }
 
@@ -140,8 +140,8 @@ function deleteAlias(sender, channel, msg) {
         ircClient.say(channel, `Error occurred: ${err}`);
         return;
       }
-      alias = JSON.parse(fs.readFileSync(FILE)).alias;
-      ircClient.say(channel, `Alias for ${key} now does not exist.`);
     }
   );
+  alias = JSON.parse(fs.readFileSync(FILE)).alias;
+  ircClient.say(channel, `Alias for ${key} now does not exist.`);
 }
