@@ -26,7 +26,7 @@ function pmHandler(sender, msg) {
   channels.push(msg);
   fs.writeFileSync(
     FILE,
-    JSON.stringify({ channels, alias }, null, 2) + "\n",
+    JSON.stringify(Object.assign({}, { channels, alias }), null, 2) + "\n",
     err => {
       if (err) {
         ircClient.say(sender, `Error occurred: ${err}.`);
@@ -111,7 +111,7 @@ function addAlias(sender, channel, msg) {
     alias[key] = machineReadableValue;
     fs.writeFileSync(
       FILE,
-      JSON.stringify({ channels, alias }, null, 2) + "\n",
+      JSON.stringify(Object.assign({}, { channels, alias }), null, 2) + "\n",
       err => {
         if (err) {
           ircClient.say(channel, `Error occurred: ${err}`);
@@ -134,7 +134,7 @@ function deleteAlias(sender, channel, msg) {
   delete alias[key];
   fs.writeFileSync(
     FILE,
-    JSON.stringify({ channels, alias }, null, 2) + "\n",
+    JSON.stringify(Object.assign({}, { channels, alias }), null, 2) + "\n",
     err => {
       if (err) {
         ircClient.say(channel, `Error occurred: ${err}`);
