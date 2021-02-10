@@ -2,9 +2,9 @@ const fs = require("fs");
 const moment = require("moment-timezone");
 const irc = require("irc");
 
-const { server, nick, maintainers } = require("./config");
+const { channels, server, nick, maintainers } = require("./config");
 const FILE = "./config.json";
-let { alias, channels } = JSON.parse(fs.readFileSync(FILE));
+let { alias } = JSON.parse(fs.readFileSync(FILE));
 
 const ircClient = new irc.Client(server, nick, { channels });
 
@@ -22,21 +22,6 @@ function handleKill(sender, msg) {
 
 function pmHandler(sender, msg) {
   handleKill(sender, msg);
-  if (!msg.startsWith("#")) return;
-  channels.push(msg);
-  fs.writeFileSync(
-    FILE,
-    JSON.stringify(Object.assign({}, { channels, alias }), null, 2) + "\n",
-    err => {
-      if (err) {
-        ircClient.say(sender, `Error occurred: ${err}.`);
-        return;
-      }
-    }
-  );
-  ircClient.join(msg);
-  ircClient.say(sender, "Attempted to join.");
-  channels = JSON.parse(fs.readFileSync(FILE));
 }
 
 function normalMsg(sender, channel, msg) {
