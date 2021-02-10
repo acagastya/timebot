@@ -1,6 +1,6 @@
 module.exports = {
   server: "irc.freenode.net",
-  nick: "timebot",
+  nick: "swtimebot",
   channels: ["#nie", "##lipsum"],
   maintainers: ["acagastya"]
 };

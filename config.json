@@ -1,7 +1,6 @@
 {
   "channels": [
-    "#foo",
-    "##bar"
+    "##nie"
   ],
   "alias": {
     "john": "America/New_York",
