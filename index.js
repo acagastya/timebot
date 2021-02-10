@@ -30,7 +30,6 @@ function normalMsg(sender, channel, msg) {
   else if (msg.includes(`${nick} add `)) addAlias(sender, channel, msg);
   else if (msg.includes(`${nick} rm `)) deleteAlias(sender, channel, msg);
   else if (msg.includes(`${nick} `)) sayTime(channel, msg);
-  else if (msg.includes(nick)) showHelp(channel, msg);
 }
 
 function errorHandler(msg) {
