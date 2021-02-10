@@ -1,9 +1,0 @@
-{
-  "channels": [
-    "##nie"
-  ],
-  "alias": {
-    "john": "America/New_York",
-    "doe": "Australia/Sydney",
-  }
-}

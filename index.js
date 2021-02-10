@@ -1,109 +1,80 @@
-const fs = require("fs");
-const moment = require("moment-timezone");
+// node imports
+const child_process = require("child_process");
+const { readFileSync, writeFileSync } = require("fs");
+const { promisify } = require("util");
+const exec = promisify(child_process.exec);
+
+// npm imports
 const irc = require("irc");
 
-const { channels, server, nick, maintainers } = require("./config");
-const FILE = "./config.json";
-let { alias } = JSON.parse(fs.readFileSync(FILE));
+// local imports
+const { channels, maintainers, nick, server } = require("./config.js");
+const zones = require("./zones.js");
 
-const ircClient = new irc.Client(server, nick, { channels });
+// constants
+const FILE = "./alias.json";
+let alias = JSON.parse(readFileSync(FILE));
 
+const ircClient = new irc.Client(server, nick, {
+  channels,
+  userName: "swtimebot",
+  realName: "swtimebot",
+  floodProtection: true,
+  floodProtectionDelay: 1000,
+});
+
+// ircClient event listeners
 ircClient.addListener("error", errorHandler);
-
 ircClient.addListener("message", normalMsg);
-
 ircClient.addListener("pm", pmHandler);
 
-function handleKill(sender, msg) {
-  if (msg != "KILL") return;
-  if (!maintainer.includes(sender)) return;
-  process.abort();
+// event-listener functions
+function errorHandler(msg = "") {
+  for (const maintainer of maintainers)
+    ircClient.say(maintainer, `${nick} error: ${msg}`);
+}
+
+async function normalMsg(sender, channel, msg) {
+  if (msg.includes(`${nick} help`)) showHelp(channel);
+  else if (msg.includes(`${nick} ls `)) showList(sender, msg);
+  else if (msg.includes(`${nick} add `)) addAlias(sender, channel, msg);
+  else if (msg.includes(`${nick} rm `)) deleteAlias(sender, channel, msg);
+  else if (msg.includes(`${nick} link`)) giveLink(sender);
+  else if (msg.includes(`${nick} `)) await sayTime(channel, msg);
 }
 
 function pmHandler(sender, msg) {
   handleKill(sender, msg);
 }
 
-function normalMsg(sender, channel, msg) {
-  if (msg.includes(`${nick} help`)) showHelp(channel, msg);
-  else if (msg.includes(`${nick} ls `)) showList(channel, msg);
-  else if (msg.includes(`${nick} add `)) addAlias(sender, channel, msg);
-  else if (msg.includes(`${nick} rm `)) deleteAlias(sender, channel, msg);
-  else if (msg.includes(`${nick} `)) sayTime(channel, msg);
-}
-
-function errorHandler(msg) {
-  for (const maintainer of maintainers)
-    ircClient.say(maintainer, `${nick} error: ${msg}`);
-}
-
-function showHelp(channel, msg) {
-  ircClient.say(channel, `Use "${nick} help" to show help.`);
-  ircClient.say(
-    channel,
-    `Use "${nick} ls <timezone>" to show a list of valid timezones.`
-  );
-  ircClient.say(
-    channel,
-    `Use "${nick} <timezone>" to display current time of <timezone>.`
-  );
-  ircClient.say(
-    channel,
-    `Use "${nick} add <alias>:<timezone>" for adding an <alias> for a <timezone>.`
-  );
-  ircClient.say(
-    channel,
-    `Use "${nick} rm <alias>" from removing an <alias> for a <timezone>.`
-  );
-}
-
-function showList(channel, msg) {
-  const reg = new RegExp(`${nick}:? ls (.*)`);
-  const zone = msg.match(reg)[1];
-  const allZones = moment.tz.names().map(el => el.replace(/_/g, " "));
-  const res = allZones
-    .filter(el => el.toLowerCase().includes(zone.toLowerCase()))
-    .join(", ");
-  ircClient.say(channel, res);
-}
-
-function sayTime(channel, msg) {
-  const reg = new RegExp(`${nick}:? (.*)`);
-  const zone = msg.match(reg)[1].replace(/ /g, "_");
-  const machineReadableZone = alias[zone] || zone;
-  const TZ = moment.tz.names().includes(machineReadableZone)
-    ? machineReadableZone
-    : "UTC";
-  let time = moment.tz(TZ).format("HH:mm MMM DD z");
-  ircClient.say(channel, time);
-}
-
+// helper functions
 function addAlias(sender, channel, msg) {
   if (!maintainers.includes(sender)) {
     ircClient.say(channel, "Only maintainers allowed to add aliases.");
     return;
   }
   if (!msg.includes(":")) {
-    ircClient.say(channel, "Wrong syntax.");
-    showHelp(channel);
+    ircClient.say(channel, "Wrong syntax, see <https://w.wiki/yes>");
     return;
   }
   const reg = new RegExp(`${nick}:? add (.*)`);
-  const [key, value] = msg.match(reg)[1].split(":");
+  let [key, value] = msg.match(reg)[1].split(":");
+  key = key.toLowerCase();
   const machineReadableValue = value.replace(/ /g, "_");
-  if (moment.tz.names().includes(machineReadableValue)) {
+  if (zones.includes(machineReadableValue)) {
     alias[key] = machineReadableValue;
-    fs.writeFileSync(
+    writeFileSync(
       FILE,
-      JSON.stringify(Object.assign({}, { channels, alias }), null, 2) + "\n",
-      err => {
+      JSON.stringify(Object.assign({}, alias), null, 2) + "\n",
+      (err) => {
         if (err) {
+          delete alias[key];
           ircClient.say(channel, `Error occurred: ${err}`);
           return;
         }
       }
     );
-    alias = JSON.parse(fs.readFileSync(FILE)).alias;
+    alias = JSON.parse(readFileSync(FILE));
     ircClient.say(channel, `Alias for ${key} has been added.`);
   }
 }
@@ -114,18 +85,68 @@ function deleteAlias(sender, channel, msg) {
     return;
   }
   const reg = new RegExp(`${nick}:? rm (.*)`);
-  const key = msg.match(reg)[1];
+  const key = msg.match(reg)[1].toLowerCase();
+  const val = alias[key];
   delete alias[key];
-  fs.writeFileSync(
+  writeFileSync(
     FILE,
-    JSON.stringify(Object.assign({}, { channels, alias }), null, 2) + "\n",
-    err => {
+    JSON.stringify(Object.assign({}, alias), null, 2) + "\n",
+    (err) => {
       if (err) {
         ircClient.say(channel, `Error occurred: ${err}`);
+        if (val) alias[key] = val;
         return;
       }
     }
   );
-  alias = JSON.parse(fs.readFileSync(FILE)).alias;
+  alias = JSON.parse(readFileSync(FILE));
   ircClient.say(channel, `Alias for ${key} now does not exist.`);
+}
+
+function formatOutput(str) {
+  return str.slice(0, -1);
+}
+
+async function getTime(tz) {
+  try {
+    const { stderr, stdout } = await exec(`TZ=${tz} date`);
+    if (stderr) throw new Error(stderr);
+    const output = formatOutput(stdout);
+    return output;
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+function giveLink(sender) {
+  ircClient.say(sender, "https://time-convertor.toolforge.org");
+}
+
+function handleKill(sender, msg) {
+  if (msg != "KILL") return;
+  if (!maintainers.includes(sender)) return;
+  process.abort();
+}
+
+async function sayTime(channel, msg) {
+  const reg = new RegExp(`${nick}:? (.*)`);
+  const zone = msg.match(reg)[1].replace(/ /g, "_");
+  const machineReadableZone = alias[zone.toLowerCase()] || zone;
+  const TZ = zones.indexOf(machineReadableZone) >= 0 ? machineReadableZone : "UTC";
+  const time = await getTime(TZ);
+  if (time) ircClient.say(channel, time);
+}
+
+function showHelp(channel) {
+  ircClient.say(channel, `Docs: <https://w.wiki/yes>`);
+}
+
+function showList(sender, msg) {
+  const reg = new RegExp(`${nick}:? ls (.*)`);
+  const zone = msg.match(reg)[1].toLowerCase();
+  const allZones = zones.map((el) => el.replace(/_/g, " "));
+  const res = allZones
+    .filter((el) => el.toLowerCase().includes(zone))
+    .join(", ");
+  ircClient.say(sender, res);
 }
