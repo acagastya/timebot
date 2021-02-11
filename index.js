@@ -36,11 +36,11 @@ function errorHandler(msg = "") {
 
 async function normalMsg(sender, channel, msg) {
   if (msg.includes(`${nick} help`)) showHelp(channel);
-  else if (msg.includes(`${nick} ls `)) showList(sender, msg);
-  else if (msg.includes(`${nick} add `)) addAlias(sender, channel, msg);
-  else if (msg.includes(`${nick} rm `)) deleteAlias(sender, channel, msg);
-  else if (msg.includes(`${nick} link`)) giveLink(sender);
-  else if (msg.includes(`${nick} `)) await sayTime(channel, msg);
+  else if (msg.startsWith(`${nick} ls `)) showList(sender, msg);
+  else if (msg.startsWith(`${nick} add `)) addAlias(sender, channel, msg);
+  else if (msg.startsWith(`${nick} rm `)) deleteAlias(sender, channel, msg);
+  else if (msg.startsWith(`${nick} link`)) giveLink(sender);
+  else if (msg.startsWith(`${nick} `)) await sayTime(channel, msg);
 }
 
 function pmHandler(sender, msg) {
